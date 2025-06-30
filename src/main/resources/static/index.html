@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gerenciador de Times</title>
+    <style>
+        /* Estilo profissional */
+        * { box-sizing: border-box; }
+        body {
+          font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+          background-color: #f4f6f8;
+          margin: 0;
+          padding: 20px;
+        }
+        .container {
+          max-width: 800px;
+          margin: auto;
+          background: white;
+          padding: 20px 30px;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 { color: #333; }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 20px;
+        }
+        th, td {
+          text-align: left;
+          padding: 12px;
+          border-bottom: 1px solid #ddd;
+        }
+        th { background-color: #f0f0f0; }
+        input[type="text"], input[type="number"] {
+          padding: 10px;
+          width: calc(100% - 24px);
+          margin-bottom: 10px;
+          border: 1px solid #ccc;
+          border-radius: 6px;
+        }
+        button {
+          padding: 10px 16px;
+          border: none;
+          border-radius: 6px;
+          background-color: #2d89ef;
+          color: white;
+          font-weight: bold;
+          cursor: pointer;
+          margin-top: 8px;
+          margin-right: 6px;
+          transition: background-color 0.2s ease-in-out;
+        }
+        button:hover { background-color: #1b65c2; }
+        .actions button { background-color: #6c757d; }
+        .actions button:hover { background-color: #495057; }
+        .danger { background-color: #dc3545; }
+        .danger:hover { background-color: #b52a36; }
+        hr { margin: 30px 0; }
+        #singleTeamResult p { font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Gerenciador de Times</h1>
+
+    <h2>Times Cadastrados</h2>
+    <table id="teamsTable">
+        <thead>
+        <tr><th>ID</th><th>Nome</th><th>Ações</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <hr>
+
+    <h2>Buscar Time por ID</h2>
+    <input type="number" id="searchId" placeholder="Digite o ID do time" />
+    <button onclick="fetchTeamById()">Buscar</button>
+    <div id="singleTeamResult" style="margin-top: 15px;"></div>
+
+    <hr>
+
+    <h2>Adicionar Novo Time</h2>
+    <input type="number" id="newId" placeholder="ID do novo time" />
+    <input type="text" id="newName" placeholder="Nome do novo time" />
+    <button onclick="createTeam()">Adicionar</button>
+
+    <hr>
+
+    <h2>Editar Time</h2>
+    <input type="number" id="editId" placeholder="ID do time" />
+    <input type="text" id="editName" placeholder="Novo nome do time" />
+    <button onclick="updateTeam()">Atualizar</button>
+</div>
+
+<script>
+    const apiUrl = "/teams";
+
+    function fetchTeams() {
+      fetch(apiUrl)
+        .then(res => res.json())
+        .then(data => {
+          const tbody = document.querySelector("#teamsTable tbody");
+          tbody.innerHTML = "";
+          data.forEach(team => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${team.id}</td>
+              <td>${team.name}</td>
+              <td class="actions">
+                <button onclick="loadToEdit(${team.id}, '${team.name}')">Editar</button>
+                <button class="danger" onclick="deleteTeam(${team.id})">Excluir</button>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        });
+    }
+
+    function fetchTeamById() {
+      const id = document.getElementById("searchId").value;
+      if (!id) return alert("Digite o ID para buscar.");
+
+      fetch(`${apiUrl}/${id}`)
+        .then(res => {
+          if (res.ok) return res.json();
+          else throw new Error("Time não encontrado.");
+        })
+        .then(team => {
+          const div = document.getElementById("singleTeamResult");
+          div.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+              <thead>
+                <tr><th>ID</th><th>Nome</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>${team.id}</td>
+                  <td>${team.name}</td>
+                </tr>
+              </tbody>
+            </table>
+          `;
+        })
+        .catch(err => {
+          document.getElementById("singleTeamResult").innerHTML = `<p style="color:red;">${err.message}</p>`;
+        });
+    }
+
+    function loadToEdit(id, name) {
+      document.getElementById("editId").value = id;
+      document.getElementById("editName").value = name;
+    }
+
+    function updateTeam() {
+      const id = document.getElementById("editId").value;
+      const name = document.getElementById("editName").value;
+
+      if (!id || !name) return alert("Preencha o ID e o novo nome.");
+
+      fetch(`${apiUrl}/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name })
+      })
+      .then(res => {
+        if (res.ok) {
+          alert("Time atualizado com sucesso!");
+          fetchTeams();
+        } else {
+          alert("Erro ao atualizar.");
+        }
+      });
+    }
+
+    function deleteTeam(id) {
+      if (!confirm("Tem certeza que deseja excluir o time?")) return;
+      fetch(`${apiUrl}/${id}`, {
+        method: "DELETE"
+      }).then(() => fetchTeams());
+    }
+
+    function createTeam() {
+      const id = parseInt(document.getElementById("newId").value);
+      const name = document.getElementById("newName").value;
+
+      if (!id || !name) return alert("Preencha o ID e o nome do time.");
+
+      fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, name })
+      })
+      .then(async res => {
+        if (res.ok) {
+          alert("Time criado com sucesso!");
+          document.getElementById("newId").value = "";
+          document.getElementById("newName").value = "";
+          fetchTeams();
+        } else {
+          const errMsg = await res.text();
+          alert("Erro ao criar time: " + errMsg);
+        }
+      });
+    }
+
+    // Inicializa listagem de times
+    fetchTeams();
+</script>
+</body>
+</html>
+
+
